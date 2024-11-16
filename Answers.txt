@@ -1,0 +1,408 @@
+SQL Solutions
+
+Query 1:
+
+Problem: Write an SQL query to return all months in the current year for which there are exactly 30 days.
+
+Approach:
+
+The tblDimDate table contains information about dates.
+We'll filter the current year using the iYear column.
+We group by the month and count the number of days in each month.
+Select months with exactly 30 days.
+
+SELECT sMonth
+FROM tblDimDate
+WHERE iYear = YEAR(CURRENT_DATE)
+GROUP BY iMonth, sMonth
+HAVING COUNT(dateDay) = 30;
+
+Explanation:
+
+We use YEAR(CURRENT_DATE) to ensure we only check the current year.
+We group by iMonth and sMonth to get the count of days for each month.
+The HAVING clause filters for months with exactly 30 days.
+----------------------------------------------------------------------------------
+
+QUERY 2:
+
+Problem: tblDimDate should have one row (one date) for every date between the first date and the last date in the table. Write a SQL query to determine how many dates are missing, if
+any, between the first date and last date. You do not need to supply a list of the missing dates.
+Approach:
+
+Use MIN(dateDay) and MAX(dateDay) to get the first and last dates.
+Calculate the total number of days between these two dates using DATEDIFF.
+Subtract the actual count of dates in the table from the total calculated days to find the missing dates.
+
+SELECT 
+    DATEDIFF(MAX(dateDay), MIN(dateDay)) + 1 - COUNT(dateDay) AS missing_dates
+FROM tblDimDate;
+
+Explanation:
+
+DATEDIFF(MAX(dateDay), MIN(dateDay)) + 1 calculates the expected number of dates.
+Subtracting COUNT(dateDay) gives the number of missing dates.
+
+----------------------------------------------------------------------------------
+
+QUERY 3:
+
+Problem: Write an SQL query to identify all orders scheduled to run in November 2023, for which there are not yet any records in tblAdvertiserLineItem
+
+Approach:
+
+Filter orders from tblOrder that fall in November 2023 using dateStart and dateEnd.
+Use a LEFT JOIN with tblAdvertiserLineItem on the foreign key idOrder.
+Return orders where there is no corresponding entry in tblAdvertiserLineItem.
+
+SELECT id, idAdvertiser, sStatus, dateStart, dateEnd
+FROM tblOrder o
+LEFT JOIN tblAdvertiserLineItem ali ON o.id = ali.idOrder
+WHERE o.dateStart >= '2023-11-01' 
+  AND o.dateEnd <= '2023-11-30'
+  AND ali.idOrder IS NULL;
+
+
+Explanation:
+
+The LEFT JOIN ensures that orders without matching records in tblAdvertiserLineItem are included.
+The condition ali.idOrder IS NULL filters out those without linked line items
+
+----------------------------------------------------------------------------------------
+
+QUERY 4:
+Problem: Write an SQL query to return the number of campaigns in tblOrder grouped by campaign duration.
+Campaign duration would be the number of days between dateStart and dateEnd.
+
+Approach:
+Use the DATEDIFF function to calculate the campaign duration in days.
+Group the results by the campaign duration.
+Count the number of campaigns for each unique duration.
+
+SELECT 
+    DATEDIFF(dateEnd, dateStart) + 1 AS campaign_duration,
+    COUNT(*) AS num_campaigns
+FROM tblOrder
+GROUP BY campaign_duration
+ORDER BY campaign_duration;
+
+Explanation:
+DATEDIFF(dateEnd, dateStart) + 1: The DATEDIFF function returns the difference in days between dateEnd and dateStart. Adding 1 includes both the start and end dates in the duration calculation.
+GROUP BY campaign_duration: Groups the campaigns based on the calculated duration.
+COUNT(*): Counts the number of campaigns for each duration.
+ORDER BY campaign_duration: Sorts the output by the campaign duration in ascending order.
+
+
+----------------------------------------------------------------------------------------------------
+
+Data Validation and Analysis
+For a project, you are working with structured (tabular) text data which is expected to conform to a specified schema.
+The schema defines the delimiters used to split data into fields, as well as the the name and data type of data for each field.
+Can you describe or write a script or pipeline which will determine if a given input file is matching the schema?
+If there are exceptions, the script should count the frequency of the exceptions, along with one or a few examples
+
+We will write a Python script to:
+
+Load the structured text data.
+Validate the data against the expected schema.
+Count and report exceptions, along with examples.
+
+
+Approach Overview
+
+Input: A structured text file (e.g., CSV or TSV).
+Schema Definition: A dictionary specifying the expected data types for each column.
+Validation:
+Check if each row matches the schema in terms of data types and column count.
+Identify any missing fields or mismatches in data types.
+Output: Summary of validation errors, including:
+Number of errors per field.
+Examples of errors.
+
+********************
+import csv
+
+# Define the expected schema as a dictionary where keys are column names
+# and values are the expected data types
+expected_schema = {
+    'field1': str,
+    'field2': int,
+    'field3': float,
+    'field4': str
+}
+
+# Define the delimiter used in the input file (e.g., ',' for CSV or '\t' for TSV)
+delimiter = ','
+
+def validate_row(row, schema):
+    """
+    Validate a single row of data against the expected schema.
+    Returns a dictionary of exceptions, if any.
+    """
+    exceptions = {}
+    for field, expected_type in schema.items():
+        if field not in row:
+            exceptions[field] = "Missing field"
+        else:
+            value = row[field]
+            try:
+                # Attempt type conversion to validate data type
+                if expected_type == int:
+                    int(value)
+                elif expected_type == float:
+                    float(value)
+                elif expected_type == str and not isinstance(value, str):
+                    raise ValueError("Expected string")
+            except ValueError:
+                exceptions[field] = f"Invalid type: expected {expected_type.__name__}, got {type(value).__name__}"
+    return exceptions
+
+def validate_file(file_path):
+    """
+    Validate a CSV/TSV file against the expected schema.
+    """
+    total_exceptions = {}
+    example_exceptions = {}
+
+    with open(file_path, 'r') as file:
+        reader = csv.DictReader(file, delimiter=delimiter)
+        for row_number, row in enumerate(reader, start=1):
+            # Validate each row
+            exceptions = validate_row(row, expected_schema)
+            if exceptions:
+                # Log exceptions and count their occurrences
+                for field, error in exceptions.items():
+                    total_exceptions[field] = total_exceptions.get(field, 0) + 1
+                    # Store the first example of each error type
+                    if field not in example_exceptions:
+                        example_exceptions[field] = (row_number, error)
+    
+    # Output the summary of exceptions
+    print("\nValidation Summary:")
+    if total_exceptions:
+        for field, count in total_exceptions.items():
+            row_number, error_message = example_exceptions[field]
+            print(f"Field '{field}': {count} errors")
+            print(f"Example from row {row_number}: {error_message}")
+    else:
+        print("No exceptions found. All data is valid.")
+
+# Example usage
+file_path = 'data.csv'  # Update this with your file path
+validate_file(file_path)
+
+*****************
+Explanation of the Script
+
+Schema Definition:
+
+The schema is defined as a dictionary where:
+Keys represent the field names.
+Values represent the expected data types (e.g., str, int, float).
+Row Validation:
+
+For each row, the script checks:
+
+If all required fields are present.
+If each field matches the expected data type.
+Any mismatches or missing fields are recorded as exceptions.
+Exception Reporting:
+
+The script counts the frequency of each type of exception.
+It also provides one example for each exception type, indicating the row number and the error message.
+Sample Input (CSV):
+
+field1,field2,field3,field4
+abc,123,45.6,hello
+def,xyz,78.9,world
+ghi,456,,example
+
+Expected Output:
+
+Validation Summary:
+Field 'field2': 1 errors
+Example from row 2: Invalid type: expected int, got str
+Field 'field3': 1 errors
+Example from row 3: Invalid type: expected float, got str
+
+
+-----------------------------------------------------------------------------------------------
+
+GBQ 
+
+How do we identify where the data is stored in a GBQ table?
+
+SELECT 
+    table_catalog,
+    table_schema,
+    table_name,
+    location
+FROM 
+    `project-id.dataset.INFORMATION_SCHEMA.TABLES`
+WHERE 
+    table_name = 'auctions';
+
+
+Explanation:
+
+The location field will show where the table is stored (e.g., US, EU).
+Replace project-id.dataset with your actual project and dataset names.
+
+------------------------------------------------------------------------------------------
+
+How can we see what partitions the table may have?
+
+SELECT 
+    partition_id,
+    row_count,
+    total_bytes
+FROM 
+    `project-id.dataset.INFORMATION_SCHEMA.PARTITIONS`
+WHERE 
+    table_name = 'auctions';
+
+
+Explanation:
+
+This query will list details of each partition, such as the partition ID, row count, and size in bytes.
+Useful for understanding how your table is partitioned and optimizing performance.
+
+
+-------------------------------------------------------------------------------------
+
+Provide a GBQ query to get a distribution of the number of auctions and line items, grouped by the number of segments within each auction record.
+
+SELECT 
+    ARRAY_LENGTH(arysegments) AS num_segments,
+    COUNT(DISTINCT auctionid) AS num_auctions,
+    COUNT(DISTINCT idlineitem) AS num_line_items
+FROM A
+    `project-id.dataset.auctions`
+GROUP BY 
+    num_segments
+ORDER BY 
+    num_segments;
+
+
+
+Explanation:
+
+ARRAY_LENGTH(arysegments): Calculates the number of segments in each auction.
+COUNT(DISTINCT auctionid): Counts unique auction IDs.
+COUNT(DISTINCT idlineitem): Counts unique line item IDs.
+The query groups by the number of segments and shows the distribution of auctions and line items.
+
+---------------------------------------------------------------------------------
+
+Provide a GBQ query to get the distinct count of auctions and line items associated with each segment within arysegments.
+
+SELECT 
+    segment,
+    COUNT(DISTINCT auctionid) AS num_auctions,
+    COUNT(DISTINCT idlineitem) AS num_line_items
+FROM 
+    `project-id.dataset.auctions`,
+    UNNEST(arysegments) AS segment
+GROUP BY 
+    segment
+ORDER BY 
+    num_auctions DESC;
+
+
+Explanation:
+
+UNNEST(arysegments): Expands the arysegments array into individual rows, allowing each segment to be treated as a separate record.
+The query then groups by each segment and counts distinct auction and line item IDs associated with each segment.
+
+--------------------------------------------------------------------------------
+Python 
+
+
+Executes a Hive query for each date in the previous month.
+The query needs to be run individually for each date due to the constraints on data size and cluster bandwidth.
+The results should be saved to a single file with 2 columns: utc_date and num_rows.
+
+Approach:
+
+Calculate all dates from the previous month.
+Loop through each date, execute the Hive query for that date, and collect the results.
+Store the results in a CSV file.
+
+
+import subprocess
+import csv
+from datetime import datetime, timedelta
+
+def get_dates_last_month():
+    """Generate a list of all dates from the previous month."""
+    today = datetime.today()
+    # Find the first day of the current month and then subtract a day to get the last day of the previous month
+    first_day_current_month = today.replace(day=1)
+    last_day_previous_month = first_day_current_month - timedelta(days=1)
+    first_day_previous_month = last_day_previous_month.replace(day=1)
+
+    # Generate all dates for the previous month
+    date_list = []
+    current_date = first_day_previous_month
+    while current_date <= last_day_previous_month:
+        date_list.append(current_date.strftime('%Y-%m-%d'))
+        current_date += timedelta(days=1)
+    return date_list
+
+def run_hive_query(date):
+    """Run the Hive query for a given date."""
+    query = f"select utc_date, sum(1) as num_rows from my_table where utc_date = '{date}' group by utc_date"
+    try:
+        # Use subprocess to run the Hive query
+        result = subprocess.check_output(['hive', '-e', query], text=True)
+        return result.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"Error running query for date {date}: {e}")
+        return None
+
+def save_to_csv(data, output_file):
+    """Save the query results to a CSV file."""
+    with open(output_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['utc_date', 'num_rows'])  # Write header
+        writer.writerows(data)
+
+def main():
+    dates = get_dates_last_month()
+    output_file = 'hive_query_results.csv'
+    results = []
+
+    # Run query for each date and collect results
+    for date in dates:
+        result = run_hive_query(date)
+        if result:
+            try:
+                utc_date, num_rows = result.split()
+                results.append([utc_date, num_rows])
+            except ValueError:
+                print(f"Unexpected format for date {date}: {result}")
+
+    # Save all results to a CSV file
+    save_to_csv(results, output_file)
+    print(f"Results saved to {output_file}")
+
+if __name__ == "__main__":
+    main()
+
+
+Explanation of the Script
+get_dates_last_month():
+
+Generates all dates from the previous month using Python's datetime module.
+run_hive_query(date):
+
+Executes the Hive query using subprocess.check_output().
+The query fetches the total count of rows for each specific date.
+save_to_csv(data, output_file):
+
+Writes the collected data to a CSV file with two columns: utc_date and num_rows.
+main():
+
+Calls the above functions to generate dates, run the Hive query for each date, collect results, and save them to a CSV file.
+
+-------------------------------------------------------------
